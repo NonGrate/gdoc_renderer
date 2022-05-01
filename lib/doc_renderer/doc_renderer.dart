@@ -44,15 +44,18 @@ class DocRenderer {
         ),
       ),
     );
-    print("[${unprocessedRequests.length - 1}] Adding a [$text] text at location: $location");
-    print("[${unprocessedRequests.length - 1}] Text has new line at the end: $newLine");
+    print("[${currentRequest()}] Adding a [$text] text at location: $location");
+    print("[${currentRequest()}] Text has new line at the end: $newLine");
     var newLocation = location + text.length + (newLine ? 1 : 0);
     objects[text] = Pair(location, newLocation);
-    print("[${unprocessedRequests.length - 1}] Adding an object with indices: $location - $newLocation");
+    print("[${currentRequest()}] Adding an object with indices: $location - $newLocation");
     location = newLocation;
-    print("[${unprocessedRequests.length - 1}] Updating location to: $location");
+    print("[${currentRequest()}] Updating location to: $location");
+    if (textStyle?.style != null) {
+      setParagraphStyle(textStyle: textStyle!.style, tag: text);
+    }
     if (textStyle != null) {
-      setParagraphStyle(textStyle: textStyle, tag: text);
+      setTextStyle(textStyle: textStyle, tag: text);
     }
   }
 
@@ -60,7 +63,7 @@ class DocRenderer {
     required List<String> lines,
     ParagraphTextStyle? textStyle,
   }) {
-    print("Adding $lines to the document");
+    print("[${currentRequest()}] Adding $lines to the document");
     for (String line in lines) {
       addTextLine(text: line, textStyle: textStyle);
       unprocessedRequests.add(
@@ -75,34 +78,105 @@ class DocRenderer {
         ),
       );
     }
-    print("[${unprocessedRequests.length - 1}] Setting a bullet style to the $lines");
+    print("[${currentRequest()}] Setting a bullet style to the $lines");
+  }
+
+  void setTextStyle({
+    required ParagraphTextStyle textStyle,
+    required String tag,
+  }) {
+    List<String> fields = [
+      "bold",
+      "italic",
+      "underline",
+    ];
+
+    print("[${currentRequest()}] Setting the ${textStyle.decorations} decorations to the [$tag] text");
+
+    docs.TextStyle style = docs.TextStyle(
+      bold: textStyle.decorations.contains(ParagraphTextDecorationEnum.BOLD),
+      italic: textStyle.decorations.contains(ParagraphTextDecorationEnum.ITALIC),
+      underline: textStyle.decorations.contains(ParagraphTextDecorationEnum.UNDERLINED),
+    );
+
+    if (textStyle.fontSize != null) {
+      print("[${currentRequest()}] Setting the [${textStyle.fontSize}] font size to the [$tag] text");
+      fields.add("fontSize");
+      style.fontSize = docs.Dimension(
+        magnitude: textStyle.fontSize!.toDouble(),
+        unit: "PT",
+      );
+    }
+
+    if (textStyle.fontColor != null) {
+      print("[${currentRequest()}] Setting the [${textStyle.fontColor}] color to the [$tag] text");
+      fields.add("foregroundColor");
+      style.foregroundColor = docs.OptionalColor(
+        color: docs.Color(
+          rgbColor: docs.RgbColor(
+            red: textStyle.fontColor!.red / 255,
+            green: textStyle.fontColor!.green / 255,
+            blue: textStyle.fontColor!.blue / 255,
+          ),
+        ),
+      );
+    }
+
+    if (textStyle.backgroundColor != null) {
+      print("[${currentRequest()}] Setting the [${textStyle.backgroundColor}] color to the [$tag] text");
+      fields.add("backgroundColor");
+      style.backgroundColor = docs.OptionalColor(
+        color: docs.Color(
+          rgbColor: docs.RgbColor(
+            red: textStyle.backgroundColor!.red / 255,
+            green: textStyle.backgroundColor!.green / 255,
+            blue: textStyle.backgroundColor!.blue / 255,
+          ),
+        ),
+      );
+    }
+
+    unprocessedRequests.add(
+      docs.Request(
+        updateTextStyle: docs.UpdateTextStyleRequest(
+          range: docs.Range(
+            startIndex: objects[tag]!.left,
+            endIndex: objects[tag]!.right,
+          ),
+          fields: fields.join(","),
+          textStyle: style,
+        ),
+      ),
+    );
+    print(
+        "[${currentRequest()}] Setting text style $textStyle to locations: ${objects[tag]!.left} - ${objects[tag]!.right}");
   }
 
   void setParagraphStyle({
-    required ParagraphTextStyle textStyle,
+    required ParagraphTextStyleEnum textStyle,
     required String tag,
   }) {
     String paragraphStyle;
     switch (textStyle) {
-      case ParagraphTextStyle.HEADER_1:
+      case ParagraphTextStyleEnum.HEADER_1:
         paragraphStyle = "HEADING_1";
         break;
-      case ParagraphTextStyle.HEADER_2:
+      case ParagraphTextStyleEnum.HEADER_2:
         paragraphStyle = "HEADING_2";
         break;
-      case ParagraphTextStyle.HEADER_3:
+      case ParagraphTextStyleEnum.HEADER_3:
         paragraphStyle = "HEADING_3";
         break;
-      case ParagraphTextStyle.HEADER_4:
+      case ParagraphTextStyleEnum.HEADER_4:
         paragraphStyle = "HEADING_4";
         break;
-      case ParagraphTextStyle.HEADER_5:
+      case ParagraphTextStyleEnum.HEADER_5:
         paragraphStyle = "HEADING_5";
         break;
-      case ParagraphTextStyle.HEADER_6:
+      case ParagraphTextStyleEnum.HEADER_6:
         paragraphStyle = "HEADING_6";
         break;
-      case ParagraphTextStyle.NORMAL_TEXT:
+      case ParagraphTextStyleEnum.NORMAL_TEXT:
         paragraphStyle = "NORMAL_TEXT";
         break;
     }
@@ -121,7 +195,7 @@ class DocRenderer {
       ),
     );
     print(
-        "[${unprocessedRequests.length - 1}] Setting style $paragraphStyle to locations: ${objects[tag]!.left} - ${objects[tag]!.right}");
+        "[${currentRequest()}] Setting style $paragraphStyle to locations: ${objects[tag]!.left} - ${objects[tag]!.right}");
   }
 
   void addImage({
@@ -130,7 +204,7 @@ class DocRenderer {
     required double width,
     bool newLine = true,
   }) {
-    print("Adding an image $uri to the document at $location location");
+    print("[${currentRequest()}] Adding an image $uri to the document at $location location");
     unprocessedRequests.add(
       docs.Request(
         insertInlineImage: docs.InsertInlineImageRequest(
@@ -152,10 +226,10 @@ class DocRenderer {
     var newLocation = location + 1;
     objects[uri] = Pair(location, newLocation);
     location = newLocation;
-    print("Updating location to: $location");
+    print("[${currentRequest()}] Updating location to: $location");
     if (newLine) {
-      print("Adding an additional new line");
-      addTextLine(text: "", textStyle: ParagraphTextStyle.NORMAL_TEXT);
+      print("[${currentRequest()}] Adding an additional new line");
+      addTextLine(text: "");
     }
   }
 
@@ -163,8 +237,8 @@ class DocRenderer {
     int rowsCount = rows.length;
     int columnsCount = rows.map((e) => e.cells.length).reduce(max);
     // location++;
-    print("Adding a new table to the document at $location location");
-    print("Table has $rowsCount rows and $columnsCount columns");
+    print("[${currentRequest()}] Adding a new table to the document at $location location");
+    print("[${currentRequest()}] Table has $rowsCount rows and $columnsCount columns");
     unprocessedRequests.add(
       docs.Request(
         insertTable: docs.InsertTableRequest(
@@ -196,9 +270,42 @@ class DocRenderer {
             newLine: false,
             textStyle: cell.textStyle,
           );
+
+          var rowIndex = rows.indexOf(row);
+          var columnIndex = cells.indexOf(cell);
+
+          if (cell.backgroundColor != null) {
+            print("[${currentRequest()}] Setting the [${cell.backgroundColor}] color to the [${cell.text}] cell");
+            unprocessedRequests.add(
+              docs.Request(
+                updateTableCellStyle: docs.UpdateTableCellStyleRequest(
+                  tableRange: docs.TableRange(
+                    rowSpan: 1,
+                    columnSpan: 1,
+                    tableCellLocation: docs.TableCellLocation(
+                      rowIndex: rowIndex,
+                      columnIndex: columnIndex,
+                      tableStartLocation: docs.Location(index: tableStartLocation),
+                    ),
+                  ),
+                  tableCellStyle: docs.TableCellStyle(
+                    backgroundColor: docs.OptionalColor(
+                      color: docs.Color(
+                        rgbColor: docs.RgbColor(
+                          red: cell.backgroundColor!.red / 255,
+                          green: cell.backgroundColor!.green / 255,
+                          blue: cell.backgroundColor!.blue / 255,
+                        ),
+                      ),
+                    ),
+                  ),
+                  fields: "backgroundColor",
+                ),
+              ),
+            );
+          }
+
           if (cell.mergeRight > 1 || cell.mergeDown > 1) {
-            var rowIndex = rows.indexOf(row);
-            var columnIndex = cells.indexOf(cell);
             unprocessedRequests.add(
               docs.Request(
                 mergeTableCells: docs.MergeTableCellsRequest(
@@ -221,10 +328,12 @@ class DocRenderer {
       location += 1; // row change index
     }
 
-    print("Current location is: $location");
+    print("[${currentRequest()}] Current location is: $location");
     location--;
-    print("Updating location to: $location");
+    print("[${currentRequest()}] Updating location to: $location");
   }
+
+  int currentRequest() => unprocessedRequests.length - 1;
 
   Future<void> save() async {
     print("Unprocessed requests count: ${unprocessedRequests.length}");
