@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:gdoc_renderer/doc_renderer/doc_renderer.dart';
+import 'package:gdoc_renderer/doc_renderer/file_uploader.dart';
 import 'package:gdoc_renderer/doc_renderer/paragraph_text_style.dart';
 import 'package:gdoc_renderer/doc_renderer/table_renderer.dart' as table;
+import 'package:googleapis_auth/googleapis_auth.dart';
 
 Future<void> exampleDocRender(BuildContext context) async {
   DocRenderer docRenderer = DocRenderer(title: "Example document");
@@ -124,4 +126,21 @@ Future<void> exampleDocRender(BuildContext context) async {
   );
 
   await docRenderer.save();
+}
+
+Future<void> uploadImage(AuthClient authClient, DocRenderer docRenderer) async {
+  var fileUploader = FileUploader(authClient: authClient);
+  String? uploadedFileUrl = await fileUploader.uploadFile("local_file_path");
+
+  if (uploadedFileUrl == null) {
+    print("Failed to upload file");
+    return;
+  }
+
+  print("Upload successful: $uploadedFileUrl");
+  docRenderer.addImage(
+    uri: uploadedFileUrl,
+    height: 300,
+    width: 200,
+  );
 }
