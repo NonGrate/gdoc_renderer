@@ -16,17 +16,31 @@ class FileUploader {
       return null;
     }
 
-    print("FileUploader: Creating a file with URI: $uri");
+    print("FileUploader: Creating a file with URI: \"$uri\"");
 
     var file = File.fromUri(Uri.parse(uri));
-    final Stream<List<int>> mediaStream = file.openRead().asBroadcastStream();
-    var fileLength = file.lengthSync();
-    print("FileUploader: Creating a Media with $mediaStream with $fileLength length");
-    var media = new drive.Media(mediaStream, fileLength);
+    var uint8list = await file.readAsBytes();
+
+    return uploadFileBytes(uint8list, uri.split("/").last, uint8list.lengthInBytes);
+  }
+
+  Future<String?> uploadFileBytes(List<int> bytes, String name, int length) async {
+    final driveApi = drive.DriveApi(authClient);
+    final folderId = await _getFolderId(driveApi);
+    if (folderId == null) {
+      print("Folder id is null aborting.");
+      return null;
+    }
+
+    print("FileUploader: Creating a file with Name: $name");
+
+    final Stream<List<int>> mediaStream = Stream.value(bytes).asBroadcastStream();
+    print("FileUploader: Creating a Media with $mediaStream with $length length");
+    var media = new drive.Media(mediaStream, length);
 
     drive.File driveFile = drive.File();
 
-    driveFile.name = uri.split("/").last;
+    driveFile.name = name;
     print("FileUploader: Creating a Drive file with the name: ${driveFile.name}");
     driveFile.modifiedTime = DateTime.now().toUtc();
     driveFile.parents = [folderId];
