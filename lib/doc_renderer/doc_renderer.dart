@@ -136,6 +136,14 @@ class DocRenderer {
       );
     }
 
+    if (textStyle.fontFamily != null) {
+      print("[${currentRequest()}] Setting the [${textStyle.fontFamily}] font family to the [$tag] text");
+      fields.add("weightedFontFamily");
+      style.weightedFontFamily = docs.WeightedFontFamily(
+        fontFamily: textStyle.fontFamily,
+      );
+    }
+
     unprocessedRequests.add(
       docs.Request(
         updateTextStyle: docs.UpdateTextStyleRequest(

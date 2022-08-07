@@ -6,6 +6,7 @@ class ParagraphTextStyle {
   final int? fontSize;
   final Color? fontColor;
   final Color? backgroundColor;
+  final String? fontFamily;
 
   const ParagraphTextStyle({
     this.style = ParagraphTextStyleEnum.NORMAL_TEXT,
@@ -13,11 +14,12 @@ class ParagraphTextStyle {
     this.fontSize,
     this.fontColor,
     this.backgroundColor,
+    this.fontFamily,
   });
 
   @override
   String toString() {
-    return 'ParagraphTextStyle{style: $style, decorations: $decorations, fontSize: $fontSize, fontColor: $fontColor, backgroundColor: $backgroundColor}';
+    return 'ParagraphTextStyle{style: $style, decorations: $decorations, fontSize: $fontSize, fontColor: $fontColor, backgroundColor: $backgroundColor, fontFamily: $fontFamily}';
   }
 }
 
