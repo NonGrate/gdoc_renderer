@@ -46,7 +46,12 @@ class DocRenderer {
     );
     print("[${currentRequest()}] Adding a [$text] text at location: $location");
     print("[${currentRequest()}] Text has new line at the end: $newLine");
-    var newLocation = location + text.length + (newLine ? 1 : 0);
+    var newLocation = location + text.replaceAll("\t", "").replaceAll("\n", "").length + (newLine ? 1 : 0);
+    if (text.contains("\t")) {
+      var count = "\t".allMatches(text).length;
+      print("Nested level: $count");
+      newLocation += count;
+    }
     objects[text] = Pair(location, newLocation);
     print("[${currentRequest()}] Adding an object with indices: $location - $newLocation");
     location = newLocation;
@@ -63,21 +68,45 @@ class DocRenderer {
     required List<String> lines,
     ParagraphTextStyle? textStyle,
   }) {
+    lines = lines.map((line) => line + '\n' * "\t".allMatches(line).length).toList();
     print("[${currentRequest()}] Adding $lines to the document");
     for (String line in lines) {
       addTextLine(text: line, textStyle: textStyle);
-      unprocessedRequests.add(
-        docs.Request(
-          createParagraphBullets: docs.CreateParagraphBulletsRequest(
-            range: docs.Range(
-              startIndex: objects[line]!.left,
-              endIndex: objects[line]!.right,
-            ),
-            bulletPreset: "BULLET_DISC_CIRCLE_SQUARE",
-          ),
-        ),
-      );
     }
+    unprocessedRequests.add(
+      docs.Request(
+        createParagraphBullets: docs.CreateParagraphBulletsRequest(
+          range: docs.Range(
+            startIndex: objects[lines.first]!.left,
+            endIndex: objects[lines.last]!.right,
+          ),
+          bulletPreset: "NUMBERED_DECIMAL_ALPHA_ROMAN",
+        ),
+      ),
+    );
+    print("[${currentRequest()}] Setting a numbered style to the $lines");
+  }
+
+  void addUnorderedList({
+    required List<String> lines,
+    ParagraphTextStyle? textStyle,
+  }) {
+    lines = lines.map((line) => line + '\n' * "\t".allMatches(line).length).toList();
+    print("[${currentRequest()}] Adding $lines to the document");
+    for (String line in lines) {
+      addTextLine(text: line, textStyle: textStyle);
+    }
+    unprocessedRequests.add(
+      docs.Request(
+        createParagraphBullets: docs.CreateParagraphBulletsRequest(
+          range: docs.Range(
+            startIndex: objects[lines.first]!.left,
+            endIndex: objects[lines.last]!.right,
+          ),
+          bulletPreset: "BULLET_DISC_CIRCLE_SQUARE",
+        ),
+      ),
+    );
     print("[${currentRequest()}] Setting a bullet style to the $lines");
   }
 
@@ -341,6 +370,18 @@ class DocRenderer {
     print("[${currentRequest()}] Updating location to: $location");
   }
 
+  void addPageBreak() {
+    print("[${currentRequest()}] Adding page break to the document");
+    unprocessedRequests.add(
+      docs.Request(
+        insertPageBreak: docs.InsertPageBreakRequest(
+          location: docs.Location(index: location),
+        ),
+      ),
+    );
+    location++;
+  }
+
   int currentRequest() => unprocessedRequests.length - 1;
 
   Future<void> save() async {
@@ -356,5 +397,9 @@ class DocRenderer {
     unprocessedRequests.clear();
 
     print(response.toJson());
+  }
+
+  Future<docs.Document> get() async {
+    return await docsApi.documents.get(document.documentId!);
   }
 }
